@@ -1,0 +1,1059 @@
+<!-- <!DOCTYPE html>
+<html>
+<head>
+    <title>LMO Smart Portal</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f0f2f5; padding: 20px; }
+        .card { max-width: 450px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #003366; }
+        label { font-weight: bold; margin-top: 10px; display: block; }
+        input { width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background-color: #28a745; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; }
+        button:hover { background-color: #218838; }
+        .download-btn { background-color: #007bff; margin-top: 10px; display: none; text-align: center; text-decoration: none; padding: 10px; border-radius: 5px; color: white; }
+        #result { margin-top: 20px; padding: 15px; text-align: center; font-weight: bold; border-radius: 5px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>⚖️ Govt. NAWI Portal</h2>
+        
+        <label>Shop Name / Owner:</label>
+        <input type="text" id="shop_name" placeholder="e.g. Gupta Sweets">
+
+        <label>Standard Master Weight (g):</label>
+        <input type="number" id="std_wt" value="1000">
+
+        <label>Machine Screen Reading (g):</label>
+        <input type="number" id="read_wt" placeholder="e.g. 999">
+
+        <button onclick="runEngine()">Generate Report</button>
+
+        <div id="result"></div>
+        <a id="download_link" class="download-btn" href="" download>📄 Download Official Certificate</a>
+    </div>
+
+    <script>
+        function runEngine() {
+            let shop = document.getElementById('shop_name').value;
+            let std = document.getElementById('std_wt').value;
+            let read = document.getElementById('read_wt').value;
+
+            fetch('/calculate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ shop_name: shop, standard: std, reading: read })
+            })
+            .then(response => response.json())
+            .then(data => {
+                let resDiv = document.getElementById('result');
+                let downBtn = document.getElementById('download_link');
+                
+                resDiv.style.display = "block";
+                resDiv.innerHTML = data.status + "<br>Error: " + data.error + "g";
+                resDiv.style.backgroundColor = data.color;
+                resDiv.style.color = "white";
+
+                if(data.pdf_url) {
+                    downBtn.href = data.pdf_url;
+                    downBtn.style.display = "block";
+                } else {
+                    downBtn.style.display = "none";
+                }
+            });
+        }
+    </script>
+</body>
+</html> -->
+
+<!-- <!DOCTYPE html>
+<html>
+<head>
+    <title>LMO Smart Portal - Inspector Login</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f0f2f5; padding: 20px; }
+        .card { max-width: 450px; margin: 40px auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #003366; margin-bottom: 20px; }
+        label { font-weight: bold; margin-top: 12px; display: block; color: #333; }
+        input { width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 11px; background-color: #003366; color: white; border: none; border-radius: 5px; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { background-color: #002244; }
+        .btn-calc { background-color: #28a745; margin-top: 10px; }
+        .btn-calc:hover { background-color: #218838; }
+        .btn-logout { background-color: #6c757d; font-size: 13px; padding: 6px 12px; width: auto; float: right; }
+        .btn-logout:hover { background-color: #5a6268; }
+        .download-btn { background-color: #007bff; margin-top: 12px; display: none; text-align: center; text-decoration: none; padding: 10px; border-radius: 5px; color: white; font-weight: bold; }
+        #result { margin-top: 15px; padding: 12px; text-align: center; font-weight: bold; border-radius: 5px; display: none; }
+        .error-banner { background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin-bottom: 15px; display: none; text-align: center; }
+        .header-bar { overflow: hidden; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .user-tag { float: left; font-weight: bold; color: #003366; line-height: 30px; }
+    </style>
+</head>
+<body>
+
+    <!DOCTYPE html>
+<html>
+<head>
+    <title>LMO Smart Portal - AI Scanner</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f0f2f5; padding: 20px; }
+        .card { max-width: 460px; margin: 30px auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #003366; margin-bottom: 20px; }
+        label { font-weight: bold; margin-top: 12px; display: block; color: #333; }
+        .input-row { display: flex; gap: 8px; align-items: center; margin-top: 5px; margin-bottom: 12px; }
+        .input-row input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        .btn-cam { padding: 10px 14px; background-color: #17a2b8; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; color: white; }
+        .btn-cam:hover { background-color: #138496; }
+        button.submit-btn { width: 100%; padding: 12px; background-color: #003366; color: white; border: none; border-radius: 5px; font-size: 15px; font-weight: bold; cursor: pointer; }
+        .btn-calc { background-color: #28a745; margin-top: 10px; }
+        .btn-calc:hover { background-color: #218838; }
+        .btn-logout { background-color: #6c757d; font-size: 13px; padding: 6px 12px; border: none; color: white; border-radius: 4px; cursor: pointer; float: right; }
+        .download-btn { background-color: #007bff; margin-top: 12px; display: none; text-align: center; text-decoration: none; padding: 10px; border-radius: 5px; color: white; font-weight: bold; }
+        #result { margin-top: 15px; padding: 12px; text-align: center; font-weight: bold; border-radius: 5px; display: none; }
+        .error-banner { background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin-bottom: 15px; display: none; text-align: center; }
+        .header-bar { overflow: hidden; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+
+        /* Camera Modal */
+        #camera_modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; }
+        .modal-box { background: white; padding: 20px; border-radius: 10px; text-align: center; max-width: 400px; width: 90%; }
+        video { width: 100%; border-radius: 8px; background: #000; }
+        .cam-controls { margin-top: 15px; display: flex; gap: 10px; justify-content: center; }
+        .btn-snap { background-color: #28a745; padding: 10px 20px; border: none; color: white; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-close { background-color: #dc3545; padding: 10px 20px; border: none; color: white; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <!- LOGIN FORM -->
+    <!-- <div class="card" id="login_card">
+        <h2>🛡️ Inspector Verification</h2>
+        <div id="login_error" class="error-banner"></div>
+        <label>Inspector ID:</label>
+        <div class="input-row"><input type="text" id="inspector_id" placeholder="e.g. LMO-101"></div>
+        <label>Access PIN:</label>
+        <div class="input-row"><input type="password" id="inspector_pin" placeholder="Enter PIN (Default: 1234)"></div>
+        <button class="submit-btn" onclick="handleLogin()">Authorize & Continue</button>
+    </div>
+
+    MAIN PORTAL
+    <div class="card" id="portal_card" style="display: none;">
+        <div class="header-bar">
+            <span id="active_inspector" style="font-weight: bold; color: #003366; line-height: 30px;">Officer: LMO</span>
+            <button class="btn-logout" onclick="handleLogout()">Sign Out</button>
+        </div>
+
+        <h2>⚖️ Govt. NAWI Portal</h2>
+
+        <label>Shop Name / Owner:</label>
+        <div class="input-row">
+            <input type="text" id="shop_name" placeholder="e.g. Gupta Sweets">
+        </div>
+
+        <label>Standard Master Weight (g):</label>
+        <div class="input-row">
+            <input type="number" id="std_wt" placeholder="e.g. 1000">
+            <button type="button" class="btn-cam" title="Scan Standard Weight Stamp" onclick="openScanner('std_wt')">📷</button>
+        </div>
+
+        <label>Machine Screen Reading (g):</label>
+        <div class="input-row">
+            <input type="number" id="read_wt" placeholder="e.g. 999.5">
+            <button type="button" class="btn-cam" title="Scan Machine Screen" onclick="openScanner('read_wt')">📷</button>
+        </div>
+
+        <button class="submit-btn btn-calc" onclick="runEngine()">Generate Report</button>
+
+        <div id="result"></div>
+        <a id="download_link" class="download-btn" href="" download>📄 Download Official Certificate</a>
+    </div>
+
+    CAMERA OVERLAY MODAL
+    <div id="camera_modal">
+        <div class="modal-box">
+            <h3 style="margin-top:0;">Scan Value</h3>
+            <p style="font-size:13px; color:#666;">Align display or weight stamp inside frame</p>
+            <video id="webcam" autoplay playsinline></video>
+            <canvas id="snapshot_canvas" style="display:none;"></canvas>
+            <div class="cam-controls">
+                <button class="btn-snap" onclick="captureAndOCR()">📸 Scan & Read</button>
+                <button class="btn-close" onclick="closeScanner()">Cancel</button>
+            </div>
+            <div id="cam_status" style="margin-top: 10px; font-size: 13px;"></div>
+        </div>
+    </div>
+
+    <script>
+        // let currentTargetField = null;
+        // let videoStream = null;
+
+        // // Check active session
+        // fetch('/api/auth/status')
+        //     .then(res => res.json())
+        //     .then(data => {
+        //         if (data.logged_in) showPortal(data.inspector_id);
+        //     });
+
+        // function handleLogin() {
+        //     let id = document.getElementById('inspector_id').value.trim();
+        //     let pin = document.getElementById('inspector_pin').value.trim();
+        //     fetch('/api/login', {
+        //         method: 'POST',
+        //         headers: { 'Content-Type': 'application/json' },
+        //         body: JSON.stringify({ inspector_id: id, pin: pin })
+        //     })
+        //     .then(res => res.json())
+        //     .then(data => {
+        //         if (data.status === "success") showPortal(id);
+        //         else {
+        //             let err = document.getElementById('login_error');
+        //             err.innerText = data.message || "Invalid credentials";
+        //             err.style.display = "block";
+        //         }
+        //     });
+        // }
+
+        // function showPortal(inspectorId) {
+        //     document.getElementById('login_card').style.display = 'none';
+        //     document.getElementById('portal_card').style.display = 'block';
+        //     document.getElementById('active_inspector').innerText = "Officer: " + inspectorId;
+        // }
+
+        // function handleLogout() {
+        //     fetch('/api/logout', { method: 'POST' }).then(() => location.reload());
+        // }
+
+        // // Camera Management
+        // async function openScanner(targetInputId) {
+        //     currentTargetField = targetInputId;
+        //     document.getElementById('camera_modal').style.display = 'flex';
+        //     document.getElementById('cam_status').innerText = "";
+        //     const video = document.getElementById('webcam');
+
+        //     try {
+        //         videoStream = await navigator.mediaDevices.getUserMedia({
+        //             video: { facingMode: "environment", width: { ideal: 1280 } }
+        //         });
+        //         video.srcObject = videoStream;
+        //     } catch (err) {
+        //         alert("Camera access denied or unavailable: " + err.message);
+        //         closeScanner();
+        //     }
+        // }
+
+        // function closeScanner() {
+        //     if (videoStream) {
+        //         videoStream.getTracks().forEach(track => track.stop());
+        //         videoStream = null;
+        //     }
+        //     document.getElementById('camera_modal').style.display = 'none';
+        // }
+
+        // function captureAndOCR() {
+        //     const video = document.getElementById('webcam');
+        //     const canvas = document.getElementById('snapshot_canvas');
+        //     const statusDiv = document.getElementById('cam_status');
+
+        //     canvas.width = video.videoWidth || 640;
+        //     canvas.height = video.videoHeight || 480;
+        //     const ctx = canvas.getContext('2d');
+        //     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        //     const base64Image = canvas.toDataURL('image/jpeg', 0.9);
+        //     statusDiv.innerText = "Processing image...";
+
+        //     fetch('/api/ocr-scan', {
+        //         method: 'POST',
+        //         headers: { 'Content-Type': 'application/json' },
+        //         body: JSON.stringify({ image: base64Image })
+        //     })
+        //     .then(res => res.json())
+        //     .then(data => {
+        //         if (data.status === "success") {
+        //             document.getElementById(currentTargetField).value = data.detected_value;
+        //             closeScanner();
+        //         } else {
+        //             statusDiv.innerText = data.message || "Failed to detect digits.";
+        //         }
+        //     })
+        //     .catch(err => {
+        //         statusDiv.innerText = "Network/Recognition error.";
+        //     });
+        // }
+
+        // // Calculation & Report Execution
+        // function runEngine() {
+        //     let shop = document.getElementById('shop_name').value;
+        //     let std = document.getElementById('std_wt').value;
+        //     let read = document.getElementById('read_wt').value;
+
+        //     fetch('/calculate', {
+        //         method: 'POST',
+        //         headers: { 'Content-Type': 'application/json' },
+        //         body: JSON.stringify({ shop_name: shop, standard: std, reading: read })
+        //     })
+        //     .then(response => {
+        //         if(response.status === 401) { location.reload(); return; }
+        //         return response.json();
+        //     })
+        //     .then(data => {
+        //         if (!data) return;
+//                 let resDiv = document.getElementById('result');
+//                 let downBtn = document.getElementById('download_link');
+
+//                 resDiv.style.display = "block";
+//                 resDiv.innerHTML = data.status + "<br>Error: " + data.error + "g";
+//                 resDiv.style.backgroundColor = data.color;
+//                 resDiv.style.color = "white";
+
+//                 if (data.pdf_url) {
+//                     downBtn.href = data.pdf_url;
+//                     downBtn.style.display = "block";
+//                 } else {
+//                     downBtn.style.display = "none";
+//                 }
+//             });
+//         }
+//     </script>
+// </body>
+// </html> 
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LMO Smart Portal</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background-color: #f0f2f5; 
+            padding: 20px; 
+        }
+        .card { 
+            max-width: 450px; 
+            margin: auto; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+        }
+        h2 { 
+            text-align: center; 
+            color: #003366; 
+            margin-bottom: 20px;
+        }
+        label { 
+            font-weight: bold; 
+            margin-top: 10px; 
+            display: block; 
+        }
+        .input-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 5px;
+            margin-bottom: 15px;
+        }
+        input { 
+            width: 100%; 
+            padding: 10px; 
+            border: 1px solid #ccc; 
+            border-radius: 5px; 
+            box-sizing: border-box; 
+        }
+        .btn-cam {
+            padding: 0 14px;
+            background-color: #003366;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn-cam:hover {
+            background-color: #002244;
+        }
+        button.action-btn { 
+            width: 100%; 
+            padding: 10px; 
+            background-color: #28a745; 
+            color: white; 
+            border: none; 
+            border-radius: 5px; 
+            font-size: 16px; 
+            cursor: pointer; 
+            margin-top: 10px;
+        }
+        button.action-btn:hover { 
+            background-color: #218838; 
+        }
+        .btn-logout {
+            float: right;
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .download-btn { 
+            background-color: #007bff; 
+            margin-top: 10px; 
+            display: none; 
+            text-align: center; 
+            text-decoration: none; 
+            padding: 10px; 
+            border-radius: 5px; 
+            color: white; 
+            font-weight: bold;
+        }
+        #result { 
+            margin-top: 20px; 
+            padding: 15px; 
+            text-align: center; 
+            font-weight: bold; 
+            border-radius: 5px; 
+            display: none; 
+        }
+        .error-banner {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            display: none;
+            text-align: center;
+        }
+
+        /* Camera Scanner Modal */
+        #camera_modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-box {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+        video {
+            width: 100%;
+            border-radius: 6px;
+            background: #000;
+        }
+        .cam-controls {
+            margin-top: 12px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        .btn-snap {
+            background-color: #28a745;
+            padding: 8px 16px;
+            border: none;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-close {
+            background-color: #6c757d;
+            padding: 8px 16px;
+            border: none;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    1. LOGIN SCREEN
+    <div class="card" id="login_card">
+        <h2> Inspector Login</h2>
+        <div id="login_error" class="error-banner"></div>
+
+        <label>Inspector ID:</label>
+        <div class="input-group">
+            <input type="text" id="inspector_id" placeholder="e.g. LMO-101">
+        </div>
+
+        <label>Access PIN:</label>
+        <div class="input-group">
+            <input type="password" id="inspector_pin" placeholder="Enter PIN (Default: 1234)">
+        </div>
+
+        <button class="action-btn" onclick="handleLogin()">Login</button>
+    </div>
+
+    < 2. MAIN VERIFICATION PORTAL (Original Style) -->
+    <!-- <div class="card" id="portal_card" style="display: none;">
+        <div>
+            <button class="btn-logout" onclick="handleLogout()">Logout</button>
+            <span id="active_inspector" style="font-size: 13px; color: #555;"></span>
+        </div>
+
+        <h2>⚖️ Govt. NAWI Portal</h2>
+        
+        <label>Shop Name / Owner:</label>
+        <div class="input-group">
+            <input type="text" id="shop_name" placeholder="e.g. Gupta Sweets">
+        </div>
+
+        <label>Standard Master Weight (g):</label>
+        <div class="input-group">
+            <input type="number" id="std_wt" value="1000">
+            <button type="button" class="btn-cam" title="Scan Stamp" onclick="openScanner('std_wt')">📷</button>
+        </div>
+
+        <label>Machine Screen Reading (g):</label>
+        <div class="input-group">
+            <input type="number" id="read_wt" placeholder="e.g. 999">
+            <button type="button" class="btn-cam" title="Scan Screen" onclick="openScanner('read_wt')">📷</button>
+        </div>
+
+        <button class="action-btn" onclick="runEngine()">Generate Report</button>
+
+        <div id="result"></div>
+        <a id="download_link" class="download-btn" href="" download>📄 Download Official Certificate</a>
+    </div>
+
+    3. POPUP CAMERA MODAL -->
+    <!-- <div id="camera_modal">
+        <div class="modal-box">
+            <h3 style="margin-top:0; color:#003366;">Scan Weight Reading</h3>
+            <video id="webcam" autoplay playsinline></video>
+            <canvas id="snapshot_canvas" style="display:none;"></canvas>
+            <div class="cam-controls"> -->
+                <!-- <button class="btn-snap" onclick="captureAndOCR()">📸 Scan & Read</button>
+                <button class="btn-close" onclick="closeScanner()">Cancel</button>
+            </div>
+            <div id="cam_status" style="margin-top: 8px; font-size: 12px; color:#555;"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentTargetField = null;
+        let videoStream = null;
+
+        // Check if session already active
+        fetch('/api/auth/status')
+            .then(res => res.json())
+            .then(data => {
+                if (data.logged_in) showPortal(data.inspector_id);
+            });
+
+        function handleLogin() {
+            let id = document.getElementById('inspector_id').value.trim();
+            let pin = document.getElementById('inspector_pin').value.trim();
+            let err = document.getElementById('login_error');
+
+            fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ inspector_id: id, pin: pin })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === "success") {
+                    showPortal(id);
+                } else {
+                    err.innerText = data.message || "Invalid credentials";
+                    err.style.display = "block";
+                }
+            });
+        }
+
+        function showPortal(inspectorId) {
+            document.getElementById('login_card').style.display = 'none';
+            document.getElementById('portal_card').style.display = 'block';
+            document.getElementById('active_inspector').innerText = "Inspector: " + inspectorId;
+        }
+
+        function handleLogout() {
+            fetch('/api/logout', { method: 'POST' }).then(() => location.reload());
+        }
+
+        // Camera functions
+        async function openScanner(targetInputId) {
+            currentTargetField = targetInputId;
+            document.getElementById('camera_modal').style.display = 'flex';
+            document.getElementById('cam_status').innerText = "";
+            const video = document.getElementById('webcam');
+
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment", width: { ideal: 1280 } }
+                });
+                video.srcObject = videoStream;
+            } catch (err) {
+                alert("Camera unavailable: " + err.message);
+                closeScanner();
+            }
+        } -->
+
+//         function closeScanner() {
+//             if (videoStream) {
+//                 videoStream.getTracks().forEach(track => track.stop());
+//                 videoStream = null;
+//             }
+//             document.getElementById('camera_modal').style.display = 'none';
+//         }
+
+//         function captureAndOCR() {
+//             const video = document.getElementById('webcam');
+//             const canvas = document.getElementById('snapshot_canvas');
+//             const statusDiv = document.getElementById('cam_status');
+
+//             canvas.width = video.videoWidth || 640;
+//             canvas.height = video.videoHeight || 480;
+//             canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+
+//             const base64Image = canvas.toDataURL('image/jpeg', 0.9);
+//             statusDiv.innerText = "Reading value...";
+
+//             fetch('/api/ocr-scan', {
+//                 method: 'POST',
+//                 headers: { 'Content-Type': 'application/json' },
+//                 body: JSON.stringify({ image: base64Image })
+//             })
+//             .then(res => res.json())
+//             .then(data => {
+//                 if (data.status === "success") {
+//                     document.getElementById(currentTargetField).value = data.detected_value;
+//                     closeScanner();
+//                 } else {
+//                     statusDiv.innerText = data.message || "Could not read numbers clearly.";
+//                 }
+//             })
+//             .catch(() => {
+//                 statusDiv.innerText = "Error scanning image.";
+//             });
+//         }
+
+//         // Generate Report Engine
+//         function runEngine() {
+//             let shop = document.getElementById('shop_name').value;
+//             let std = document.getElementById('std_wt').value;
+//             let read = document.getElementById('read_wt').value;
+
+//             fetch('/calculate', {
+//                 method: 'POST',
+//                 headers: { 'Content-Type': 'application/json' },
+//                 body: JSON.stringify({ shop_name: shop, standard: std, reading: read })
+//             })
+//             .then(response => {
+//                 if(response.status === 401) { location.reload(); return; }
+//                 return response.json();
+//             })
+//             .then(data => {
+//                 if (!data) return;
+//                 let resDiv = document.getElementById('result');
+//                 let downBtn = document.getElementById('download_link');
+                
+//                 resDiv.style.display = "block";
+<!-- //                 resDiv.innerHTML = data.status + "<br>Error: " + data.error + "g"; -->
+//                 resDiv.style.backgroundColor = data.color;
+//                 resDiv.style.color = "white";
+
+//                 if(data.pdf_url) {
+//                     downBtn.href = data.pdf_url;
+//                     downBtn.style.display = "block";
+//                 } else {
+//                     downBtn.style.display = "none";
+//                 }
+//             });
+//         }
+<!-- //     </script>
+// </body>
+// </html> -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LMO Smart Inspection Portal</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background-color: #f0f2f5; 
+            padding: 20px; 
+            margin: 0;
+        }
+        .card { 
+            max-width: 460px; 
+            margin: 30px auto; 
+            background: white; 
+            padding: 25px; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+        }
+        h2 { 
+            text-align: center; 
+            color: #003366; 
+            margin-top: 0;
+            margin-bottom: 20px; 
+        }
+        label { 
+            font-weight: bold; 
+            margin-top: 14px; 
+            display: block; 
+            color: #333;
+        }
+        input { 
+            width: 100%; 
+            padding: 11px; 
+            margin-top: 6px; 
+            margin-bottom: 12px; 
+            border: 1px solid #ccc; 
+            border-radius: 6px; 
+            box-sizing: border-box; 
+            font-size: 14px;
+        }
+        button.primary-btn { 
+            width: 100%; 
+            padding: 12px; 
+            background-color: #003366; 
+            color: white; 
+            border: none; 
+            border-radius: 6px; 
+            font-size: 15px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            margin-top: 10px;
+        }
+        button.primary-btn:hover { 
+            background-color: #002244; 
+        }
+        .btn-calc {
+            background-color: #28a745 !important;
+        }
+        .btn-calc:hover {
+            background-color: #218838 !important;
+        }
+        .cam-trigger-box {
+            border: 2px dashed #003366;
+            background-color: #f8fbfe;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            margin: 15px 0;
+            transition: 0.2s;
+        }
+        .cam-trigger-box:hover {
+            background-color: #eef5fc;
+        }
+        .cam-icon {
+            font-size: 40px;
+            display: block;
+            margin-bottom: 6px;
+        }
+        .btn-logout { 
+            float: right; 
+            background: #dc3545; 
+            color: white; 
+            border: none; 
+            padding: 6px 12px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-size: 12px; 
+        }
+        .download-btn { 
+            background-color: #007bff; 
+            margin-top: 15px; 
+            display: none; 
+            text-align: center; 
+            text-decoration: none; 
+            padding: 12px; 
+            border-radius: 6px; 
+            color: white; 
+            font-weight: bold; 
+        }
+        #result { 
+            margin-top: 20px; 
+            padding: 15px; 
+            text-align: center; 
+            font-weight: bold; 
+            border-radius: 6px; 
+            display: none; 
+        }
+        .error-banner { 
+            background-color: #f8d7da; 
+            color: #721c24; 
+            padding: 10px; 
+            border-radius: 5px; 
+            margin-bottom: 15px; 
+            display: none; 
+            text-align: center; 
+        }
+        .header-status {
+            overflow: hidden;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        /* Fullscreen Camera Modal */
+        #camera_modal { 
+            display: none; 
+            position: fixed; 
+            top: 0; left: 0; 
+            width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.85); 
+            z-index: 9999; 
+            justify-content: center; 
+            align-items: center; 
+        }
+        .modal-box { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 10px; 
+            max-width: 420px; 
+            width: 90%; 
+            text-align: center; 
+        }
+        video { 
+            width: 100%; 
+            border-radius: 6px; 
+            background: #000; 
+        }
+        .cam-controls { 
+            margin-top: 15px; 
+            display: flex; 
+            gap: 10px; 
+            justify-content: center; 
+        }
+        .btn-snap { 
+            background-color: #28a745; 
+            padding: 10px 20px; 
+            border: none; 
+            color: white; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-weight: bold; 
+        }
+        .btn-close { 
+            background-color: #6c757d; 
+            padding: 10px 20px; 
+            border: none; 
+            color: white; 
+            border-radius: 5px; 
+            cursor: pointer; 
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1. LOGIN SCREEN -->
+    <div class="card" id="login_card">
+        <h2>🛡️ Inspector Verification</h2>
+        <div id="login_error" class="error-banner"></div>
+
+        <label>Inspector ID:</label>
+        <input type="text" id="inspector_id" placeholder="e.g. LMO-101">
+
+        <label>Access Password / PIN:</label>
+        <input type="password" id="inspector_pin" placeholder="Enter PIN (Default: 1234)">
+
+        <button class="primary-btn" onclick="handleLogin()">Login</button>
+    </div>
+
+    <!-- 2. INSPECTION WORKSPACE (Appears after login) -->
+    <div class="card" id="portal_card" style="display: none;">
+        <div class="header-status">
+            <button class="btn-logout" onclick="handleLogout()">Sign Out</button>
+            <span id="active_inspector" style="font-weight: bold; color: #003366; line-height: 26px;">Officer: LMO</span>
+        </div>
+
+        <h2>⚖️ Govt. NAWI Inspection</h2>
+
+        <label>Shop / Establishment Name:</label>
+        <input type="text" id="shop_name" placeholder="e.g. Gupta Sweets">
+
+        <!-- CAMERA SCAN TRIGGER -->
+        <label>Weight Inspection Scan:</label>
+        <div class="cam-trigger-box" onclick="openScanner()">
+            <span class="cam-icon">📷</span>
+            <strong>Click to Open Camera & Scan</strong>
+            <p style="margin: 4px 0 0 0; font-size: 12px; color: #666;">Align standard weight stamp and machine display</p>
+        </div>
+
+        <!-- SCANNED DATA FIELDS -->
+        <div style="display: flex; gap: 10px;">
+            <div style="flex: 1;">
+                <label>Standard (g):</label>
+                <input type="number" id="std_wt" placeholder="Auto / Manual" value="1000">
+            </div>
+            <div style="flex: 1;">
+                <label>Reading (g):</label>
+                <input type="number" id="read_wt" placeholder="Auto / Manual">
+            </div>
+        </div>
+
+        <button class="primary-btn btn-calc" onclick="runEngine()">Generate Official Report</button>
+
+        <div id="result"></div>
+        <a id="download_link" class="download-btn" href="" download>📄 Download Stamped Certificate</a>
+    </div>
+
+    <!-- 3. CAMERA MODAL -->
+    <div id="camera_modal">
+        <div class="modal-box">
+            <h3 style="margin-top:0; color:#003366;">Align & Capture Display</h3>
+            <video id="webcam" autoplay playsinline></video>
+            <canvas id="snapshot_canvas" style="display:none;"></canvas>
+            <div class="cam-controls">
+                <button class="btn-snap" onclick="captureAndOCR()">📸 Scan Weight</button>
+                <button class="btn-close" onclick="closeScanner()">Cancel</button>
+            </div>
+            <div id="cam_status" style="margin-top: 10px; font-size: 13px; color: #555;"></div>
+        </div>
+    </div>
+
+    <script>
+        let videoStream = null;
+
+        // Auto-check existing session
+        fetch('/api/auth/status')
+            .then(res => res.json())
+            .then(data => {
+                if (data.logged_in) showPortal(data.inspector_id);
+            });
+
+        function handleLogin() {
+            let id = document.getElementById('inspector_id').value.trim();
+            let pin = document.getElementById('inspector_pin').value.trim();
+            let err = document.getElementById('login_error');
+
+            fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ inspector_id: id, pin: pin })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === "success") {
+                    showPortal(id);
+                } else {
+                    err.innerText = data.message || "Invalid credentials.";
+                    err.style.display = "block";
+                }
+            });
+        }
+
+        function showPortal(inspectorId) {
+            document.getElementById('login_card').style.display = 'none';
+            document.getElementById('portal_card').style.display = 'block';
+            document.getElementById('active_inspector').innerText = "Officer: " + inspectorId;
+        }
+
+        function handleLogout() {
+            fetch('/api/logout', { method: 'POST' }).then(() => location.reload());
+        }
+
+        // Camera handlers
+        async function openScanner() {
+            document.getElementById('camera_modal').style.display = 'flex';
+            document.getElementById('cam_status').innerText = "";
+            const video = document.getElementById('webcam');
+
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment", width: { ideal: 1280 } }
+                });
+                video.srcObject = videoStream;
+            } catch (err) {
+                alert("Camera access denied or unavailable: " + err.message);
+                closeScanner();
+            }
+        }
+
+        function closeScanner() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+            document.getElementById('camera_modal').style.display = 'none';
+        }
+
+        function captureAndOCR() {
+            const video = document.getElementById('webcam');
+            const canvas = document.getElementById('snapshot_canvas');
+            const statusDiv = document.getElementById('cam_status');
+
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const base64Image = canvas.toDataURL('image/jpeg', 0.9);
+            statusDiv.innerText = "Analyzing display via AI OCR...";
+
+            fetch('/api/ocr-scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: base64Image })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === "success") {
+                    // Populate machine reading automatically
+                    document.getElementById('read_wt').value = data.detected_reading;
+                    if (data.detected_standard) {
+                        document.getElementById('std_wt').value = data.detected_standard;
+                    }
+                    closeScanner();
+                } else {
+                    statusDiv.innerText = data.message || "Digits not clear. Hold steady.";
+                }
+            })
+            .catch(() => {
+                statusDiv.innerText = "Recognition error. Please check lighting.";
+            });
+        }
+
+        // Calculation & Certificate generation
+        function runEngine() {
+            let shop = document.getElementById('shop_name').value.trim();
+            let std = document.getElementById('std_wt').value;
+            let read = document.getElementById('read_wt').value;
+
+            if (!shop) {
+                alert("Please enter Shop Name first!");
+                return;
+            }
+
+            fetch('/calculate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ shop_name: shop, standard: std, reading: read })
+            })
+            .then(response => {
+                if(response.status === 401) { location.reload(); return; }
+                return response.json();
+            })
+            .then(data => {
+                if (!data) return;
+                let resDiv = document.getElementById('result');
+                let downBtn = document.getElementById('download_link');
+
+                resDiv.style.display = "block";
+                resDiv.innerHTML = data.status + "<br>Error: " + data.error + "g";
+                resDiv.style.backgroundColor = data.color;
+                resDiv.style.color = "white";
+
+                if (data.pdf_url) {
+                    downBtn.href = data.pdf_url;
+                    downBtn.style.display = "block";
+                } else {
+                    downBtn.style.display = "none";
+                }
+            });
+        }
+    </script>
+</body>
+</html>
