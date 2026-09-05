@@ -2,6 +2,7 @@ import os
 import base64
 import re
 from datetime import datetime
+import shutil
 
 import cv2
 import numpy as np
@@ -15,12 +16,16 @@ from database import db
 from models import Instrument, Inspection
 
 app = Flask(__name__)
-app.secret_key = "nawi_super_secure_secret_key"
+app.secret_key = os.environ.get("SECRET_KEY", "nawi_super_secure_secret_key")
 
-# Windows Tesseract-OCR default binary path
-tesseract_default = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-if os.path.exists(tesseract_default):
-    pytesseract.pytesseract.tesseract_cmd = tesseract_default
+# Cross-platform Tesseract binary auto-discovery
+windows_tesseract = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+linux_tesseract = shutil.which("tesseract") or "/usr/bin/tesseract"
+
+if os.name == "nt" and os.path.exists(windows_tesseract):
+    pytesseract.pytesseract.tesseract_cmd = windows_tesseract
+elif os.path.exists(linux_tesseract):
+    pytesseract.pytesseract.tesseract_cmd = linux_tesseract
 
 # Authorized Inspector Credentials
 VALID_INSPECTORS = {
@@ -34,27 +39,35 @@ STATIC_DIR = os.path.join(os.getcwd(), 'static')
 os.makedirs(CERT_DIR, exist_ok=True)
 os.makedirs(STATIC_DIR, exist_ok=True)
 
-# MySQL configuration
-USER = "root"
-PASSWORD = "avinash17"
-HOST = "localhost"
-DATABASE = "nawi_database"
+# Database Configuration: Uses DATABASE_URL env variable if present, falls back to MySQL or SQLite
+db_url = os.environ.get("DATABASE_URL")
 
-connection_url = URL.create(
-    "mysql+pymysql",
-    username=USER,
-    password=PASSWORD,
-    host=HOST,
-    database=DATABASE
-)
+if not db_url:
+    # Check if custom MySQL environment variables exist, else use SQLite to prevent crash
+    mysql_host = os.environ.get("MYSQLHOST")
+    if mysql_host:
+        db_url = URL.create(
+            "mysql+pymysql",
+            username=os.environ.get("MYSQLUSER", "root"),
+            password=os.environ.get("MYSQLPASSWORD", ""),
+            host=mysql_host,
+            port=int(os.environ.get("MYSQLPORT", 3306)),
+            database=os.environ.get("MYSQLDATABASE", "nawi_database")
+        )
+    else:
+        # Local SQLite fallback so deployment runs smoothly without external DB setup
+        db_url = "sqlite:///nawi_fallback.db"
 
-app.config["SQLALCHEMY_DATABASE_URI"] = connection_url
+app.config["SQLALCHEMY_DATABASE_URI"] = db_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Database connect aur tables create karna
 db.init_app(app)
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+    except Exception as e:
+        print(f"Database initialization error: {e}")
 
 
 # --- AUTHENTICATION ROUTES ---
@@ -99,7 +112,6 @@ def ocr_scan():
         return jsonify({"status": "error", "message": "No image provided"}), 400
 
     try:
-        # Base64 string decode
         header, encoded = image_data.split(",", 1) if "," in image_data else ("", image_data)
         img_bytes = base64.b64decode(encoded)
         img_np = np.frombuffer(img_bytes, np.uint8)
@@ -109,18 +121,17 @@ def ocr_scan():
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         gray = cv2.resize(gray, None, fx=2.5, fy=2.5, interpolation=cv2.INTER_CUBIC)
 
-        # 2. Contrast Enhancement (CLAHE handles display glare & low contrast)
+        # 2. Contrast Enhancement
         clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
         enhanced = clahe.apply(gray)
 
-        # 3. Gaussian Blur to bridge 7-segment digital gaps
+        # 3. Gaussian Blur
         blurred = cv2.GaussianBlur(enhanced, (5, 5), 0)
 
-        # 4. Dual Thresholding (Standard Otsu + Inverted)
+        # 4. Dual Thresholding
         _, thresh1 = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         thresh2 = cv2.bitwise_not(thresh1)
 
-        # Target PSMs for sparse/single line instrument displays
         configs = [
             r'--oem 3 --psm 11 -c tessedit_char_whitelist=0123456789.',
             r'--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789.',
@@ -129,7 +140,6 @@ def ocr_scan():
 
         extracted_numbers = []
 
-        # Multi-pass execution
         for processed_img in [thresh1, thresh2]:
             for cfg in configs:
                 text = pytesseract.image_to_string(processed_img, config=cfg)
@@ -184,7 +194,6 @@ def check_weight():
         status = "PASS"
         color = "#28a745"
 
-        # 1. Generate QR Code
         qr_data = (
             f"Govt of India | Legal Metrology\n"
             f"Cert No: {cert_no}\n"
@@ -196,17 +205,14 @@ def check_weight():
         qr_path = os.path.join(CERT_DIR, "qr.png")
         qrcode.make(qr_data).save(qr_path)
 
-        # 2. Build High-Quality Official Government PDF
         pdf = FPDF(orientation="P", unit="mm", format="A4")
         pdf.add_page()
 
-        # Double Decorative Borders
         pdf.set_line_width(0.8)
         pdf.rect(x=8, y=8, w=194, h=281)
         pdf.set_line_width(0.3)
         pdf.rect(x=10, y=10, w=190, h=277)
 
-        # Emblem Logo (falls back gracefully if image absent)
         emblem_path = os.path.join(STATIC_DIR, 'emblem.png')
         if os.path.exists(emblem_path):
             pdf.image(emblem_path, x=95, y=13, w=20)
@@ -214,7 +220,6 @@ def check_weight():
         else:
             pdf.ln(10)
 
-        # Header Titles
         pdf.set_font("helvetica", "B", 15)
         pdf.set_text_color(0, 51, 102)
         pdf.cell(w=190, h=7, text="GOVERNMENT OF INDIA", new_x="LMARGIN", new_y="NEXT", align="C")
@@ -227,19 +232,16 @@ def check_weight():
         pdf.set_text_color(100, 100, 100)
         pdf.cell(w=190, h=5, text="Verification Certificate under Standards of Weights & Measures (OIML R-76)", new_x="LMARGIN", new_y="NEXT", align="C")
 
-        # Blue Divider Line
         pdf.set_draw_color(0, 51, 102)
         pdf.set_line_width(0.5)
         pdf.line(20, 56, 190, 56)
 
-        # Metadata Row
         pdf.ln(8)
         pdf.set_text_color(50, 50, 50)
         pdf.set_font("helvetica", "B", 9)
         pdf.cell(w=95, h=6, text=f"Certificate ID: {cert_no}", new_x="RIGHT")
         pdf.cell(w=95, h=6, text=f"Date & Time: {issue_date}", new_x="LMARGIN", new_y="NEXT", align="R")
 
-        # Table Header
         pdf.ln(5)
         pdf.set_fill_color(0, 51, 102)
         pdf.set_text_color(255, 255, 255)
@@ -262,7 +264,6 @@ def check_weight():
         add_table_row("Max Permissible Error (MPE)", "+/- 2.0 g", is_even=True)
         add_table_row("Verification Verdict", "PASSED & DIGITALLY STAMPED", is_even=False)
 
-        # Seal Box with QR Code
         pdf.ln(10)
         pdf.set_draw_color(200, 200, 200)
         pdf.rect(x=20, y=140, w=170, h=52)
@@ -279,7 +280,6 @@ def check_weight():
         pdf.set_text_color(80, 80, 80)
         pdf.multi_cell(w=110, h=4, text="This equipment complies with statutory provisions of Legal Metrology Act, 2009. The non-automatic weighing instrument is certified for commercial trade usage.\nScan the QR code to authenticate verification records on the national portal.")
 
-        # Officer Signature Area
         pdf.set_xy(110, 215)
         pdf.set_font("helvetica", "B", 9)
         pdf.set_text_color(30, 30, 30)
@@ -288,7 +288,6 @@ def check_weight():
         pdf.set_font("helvetica", "", 8)
         pdf.cell(w=75, h=4, text="Govt. of India, Inspection Directorate", new_x="LMARGIN", new_y="NEXT", align="C")
 
-        # Footer Notice
         pdf.set_xy(10, 270)
         pdf.set_font("helvetica", "I", 7)
         pdf.set_text_color(130, 130, 130)
@@ -304,7 +303,6 @@ def check_weight():
         color = "#dc3545"
         pdf_url = None
 
-    # Save Inspection to Database
     try:
         record = Inspection(
             shop_name=shop_name,
@@ -431,4 +429,5 @@ def delete_instrument(id):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
