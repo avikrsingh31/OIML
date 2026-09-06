@@ -2,11 +2,10 @@ import os
 import base64
 import re
 from datetime import datetime
-import shutil
 
 import cv2
 import numpy as np
-import pytesseract
+import easyocr
 import qrcode
 from fpdf import FPDF
 from flask import Flask, render_template, request, jsonify, send_file, session
@@ -16,16 +15,10 @@ from database import db
 from models import Instrument, Inspection
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "nawi_super_secure_secret_key")
+app.secret_key = "nawi_super_secure_secret_key_caliberate"
 
-# Cross-platform Tesseract binary auto-discovery
-windows_tesseract = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-linux_tesseract = shutil.which("tesseract") or "/usr/bin/tesseract"
-
-if os.name == "nt" and os.path.exists(windows_tesseract):
-    pytesseract.pytesseract.tesseract_cmd = windows_tesseract
-elif os.path.exists(linux_tesseract):
-    pytesseract.pytesseract.tesseract_cmd = linux_tesseract
+# Initialize EasyOCR Reader (CPU mode enabled by default)
+ocr_reader = easyocr.Reader(['en'], gpu=False)
 
 # Authorized Inspector Credentials
 VALID_INSPECTORS = {
@@ -39,35 +32,27 @@ STATIC_DIR = os.path.join(os.getcwd(), 'static')
 os.makedirs(CERT_DIR, exist_ok=True)
 os.makedirs(STATIC_DIR, exist_ok=True)
 
-# Database Configuration: Uses DATABASE_URL env variable if present, falls back to MySQL or SQLite
-db_url = os.environ.get("DATABASE_URL")
+# MySQL configuration
+USER = "root"
+PASSWORD = "avinash17"
+HOST = "localhost"
+DATABASE = "nawi_database"
 
-if not db_url:
-    # Check if custom MySQL environment variables exist, else use SQLite to prevent crash
-    mysql_host = os.environ.get("MYSQLHOST")
-    if mysql_host:
-        db_url = URL.create(
-            "mysql+pymysql",
-            username=os.environ.get("MYSQLUSER", "root"),
-            password=os.environ.get("MYSQLPASSWORD", ""),
-            host=mysql_host,
-            port=int(os.environ.get("MYSQLPORT", 3306)),
-            database=os.environ.get("MYSQLDATABASE", "nawi_database")
-        )
-    else:
-        # Local SQLite fallback so deployment runs smoothly without external DB setup
-        db_url = "sqlite:///nawi_fallback.db"
+connection_url = URL.create(
+    "mysql+pymysql",
+    username=USER,
+    password=PASSWORD,
+    host=HOST,
+    database=DATABASE
+)
 
-app.config["SQLALCHEMY_DATABASE_URI"] = db_url
+app.config["SQLALCHEMY_DATABASE_URI"] = connection_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Database connect aur tables create karna
 db.init_app(app)
 with app.app_context():
-    try:
-        db.create_all()
-    except Exception as e:
-        print(f"Database initialization error: {e}")
+    db.create_all()
 
 
 # --- AUTHENTICATION ROUTES ---
@@ -98,18 +83,43 @@ def inspector_logout():
     return jsonify({"status": "success"})
 
 
-# --- MULTI-PASS LCD/7-SEGMENT AI-OCR ROUTE ---
+# --- EASYOCR ROBUST DEEP LEARNING SCANNER ---
+
+def clean_and_parse_numbers(text_list):
+    """
+    Extracted OCR text se numbers, decimals aur kg/g units ko parse karke grams me convert karta hai.
+    """
+    extracted = []
+    for text in text_list:
+        # Common OCR digit confusion fixes for digital displays
+        cleaned = text.upper()
+        cleaned = cleaned.replace('O', '0').replace('D', '0').replace('I', '1').replace('L', '1').replace('S', '5')
+        cleaned = cleaned.replace(',', '.')
+
+        # Find numbers with or without units (e.g., 999.8, 5.0kg, 1000g)
+        matches = re.findall(r'(\d+(?:\.\d+)?)\s*(KG|G)?', cleaned)
+        for num_str, unit in matches:
+            try:
+                val = float(num_str)
+                if unit == 'KG':
+                    val *= 1000.0
+                if 0.05 <= val <= 250000:
+                    extracted.append((val, '.' in num_str))
+            except ValueError:
+                continue
+    return extracted
+
 
 @app.route("/api/ocr-scan", methods=["POST"])
 def ocr_scan():
     if "inspector" not in session:
-        return jsonify({"status": "error", "message": "Unauthorized. Please log in."}), 401
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
 
     data = request.get_json() or {}
     image_data = data.get("image")
 
     if not image_data:
-        return jsonify({"status": "error", "message": "No image provided"}), 400
+        return jsonify({"status": "error", "message": "No image frame provided"}), 400
 
     try:
         header, encoded = image_data.split(",", 1) if "," in image_data else ("", image_data)
@@ -117,58 +127,59 @@ def ocr_scan():
         img_np = np.frombuffer(img_bytes, np.uint8)
         img = cv2.imdecode(img_np, cv2.IMREAD_COLOR)
 
-        # 1. Grayscale & Upscaling
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        gray = cv2.resize(gray, None, fx=2.5, fy=2.5, interpolation=cv2.INTER_CUBIC)
+        h, w = img.shape[:2]
 
-        # 2. Contrast Enhancement
-        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-        enhanced = clahe.apply(gray)
+        # Spatial Zones based on visual overlay in the UI:
+        # Top 50% = Scale Display Reading Zone
+        # Bottom 50% = Standard Weight Stamp Zone
+        top_zone = img[0:int(h * 0.52), 0:w]
+        bottom_zone = img[int(h * 0.48):h, 0:w]
 
-        # 3. Gaussian Blur
-        blurred = cv2.GaussianBlur(enhanced, (5, 5), 0)
+        # EasyOCR deep-learning text extraction
+        top_results = ocr_reader.readtext(top_zone, detail=0)
+        bottom_results = ocr_reader.readtext(bottom_zone, detail=0)
 
-        # 4. Dual Thresholding
-        _, thresh1 = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        thresh2 = cv2.bitwise_not(thresh1)
+        reading_candidates = clean_and_parse_numbers(top_results)
+        standard_candidates = clean_and_parse_numbers(bottom_results)
 
-        configs = [
-            r'--oem 3 --psm 11 -c tessedit_char_whitelist=0123456789.',
-            r'--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789.',
-            r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789.'
-        ]
+        # Fallback agar display top zone me properly crop na hua ho
+        if not reading_candidates:
+            full_results = ocr_reader.readtext(img, detail=0)
+            all_candidates = clean_and_parse_numbers(full_results)
+            if all_candidates:
+                reading_candidates = all_candidates
 
-        extracted_numbers = []
+        detected_reading = None
+        detected_standard = None
 
-        for processed_img in [thresh1, thresh2]:
-            for cfg in configs:
-                text = pytesseract.image_to_string(processed_img, config=cfg)
-                matches = re.findall(r"\b\d+(?:\.\d+)?\b", text)
-                if matches:
-                    extracted_numbers.extend(matches)
-                    break
-            if extracted_numbers:
-                break
+        # Prioritize decimal value for reading output
+        if reading_candidates:
+            decimals = [val for val, has_dot in reading_candidates if has_dot]
+            detected_reading = decimals[0] if decimals else reading_candidates[0][0]
 
-        if extracted_numbers:
-            reading = extracted_numbers[0]
-            standard = extracted_numbers[1] if len(extracted_numbers) > 1 else None
+        if standard_candidates:
+            # Legal Metrology standard denominations
+            benchmarks = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
+            matched = [val for val, _ in standard_candidates if int(val) in benchmarks]
+            detected_standard = matched[0] if matched else standard_candidates[0][0]
+
+        if detected_reading is not None:
             return jsonify({
                 "status": "success",
-                "detected_reading": reading,
-                "detected_standard": standard
+                "detected_reading": round(float(detected_reading), 2),
+                "detected_standard": round(float(detected_standard), 2) if detected_standard else 1000.0
             })
 
         return jsonify({
             "status": "error",
-            "message": "Digits not clear. Please hold camera closer and steady."
+            "message": "Digits not detected clearly. Hold the camera closer and steady."
         }), 422
 
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": f"Vision processing error: {str(e)}"}), 500
 
 
-# --- WEB & VERIFICATION REPORT GENERATION ---
+# --- CALCULATION & OFFICIAL PDF CERTIFICATE GENERATION ---
 
 @app.route("/")
 def home():
@@ -192,8 +203,9 @@ def check_weight():
 
     if error <= allowed_error:
         status = "PASS"
-        color = "#28a745"
+        color = "#00e676"
 
+        # 1. QR Code Generation
         qr_data = (
             f"Govt of India | Legal Metrology\n"
             f"Cert No: {cert_no}\n"
@@ -205,6 +217,7 @@ def check_weight():
         qr_path = os.path.join(CERT_DIR, "qr.png")
         qrcode.make(qr_data).save(qr_path)
 
+        # 2. Official Certificate Generation
         pdf = FPDF(orientation="P", unit="mm", format="A4")
         pdf.add_page()
 
@@ -300,9 +313,10 @@ def check_weight():
         pdf_url = f"/download/{pdf_filename}"
     else:
         status = "FAIL - Seized under Sec 25"
-        color = "#dc3545"
+        color = "#ff3366"
         pdf_url = None
 
+    # Save Inspection Record to Database
     try:
         record = Inspection(
             shop_name=shop_name,
@@ -336,7 +350,7 @@ def download_file(filename):
 def test_api():
     return jsonify({
         "status": "success",
-        "message": "Flask API is working"
+        "message": "Legal Metrology API Active"
     })
 
 
@@ -386,15 +400,12 @@ def add_instrument():
         db.session.commit()
         return jsonify({
             "status": "success",
-            "message": "Instrument added successfully",
+            "message": "Instrument registered successfully",
             "instrument_id": instrument.id
         }), 201
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 400
+        return jsonify({"status": "error", "message": str(e)}), 400
 
 
 @app.route("/api/instruments/<int:id>", methods=["GET"])
@@ -429,5 +440,4 @@ def delete_instrument(id):
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(debug=True, port=5000)
